@@ -214,10 +214,16 @@ func (c *Client) Decide(ctx context.Context, req Request) (*Result, error) {
 	return c.DecideWith(ctx, name, req)
 }
 
-// DecideWith sends req to the named provider.
+// DecideWith sends req to the named provider. The request is checked against
+// the provider's [Capability] before any network call, so an unsupported
+// image or an oversized state fails locally.
 func (c *Client) DecideWith(ctx context.Context, name string, req Request) (*Result, error) {
 	provider, err := c.Provider(name)
 	if err != nil {
+		return nil, err
+	}
+
+	if err := checkCapabilities(provider, req); err != nil {
 		return nil, err
 	}
 
@@ -230,6 +236,37 @@ func (c *Client) DecideWith(ctx context.Context, name string, req Request) (*Res
 	return retry.Do(ctx, func() (*Result, error) {
 		return c.wrap(provider)(ctx, req)
 	})
+}
+
+// checkCapabilities reports the problems a provider advertises it cannot
+// accept, so callers get a precise local error instead of an opaque HTTP
+// rejection. A provider that does not implement [Capable] is assumed to accept
+// anything and is left to validate the request itself.
+func checkCapabilities(provider Provider, req Request) error {
+	capable, ok := provider.(Capable)
+	if !ok {
+		return nil
+	}
+	cap := capable.Capabilities()
+
+	v := &ValidationError{}
+	if len(req.Images) > 0 && !cap.Images {
+		v.Add("%s does not accept images, but the request carries %d", provider.Name(), len(req.Images))
+	}
+	if n := cap.MaxQuestions; n > 0 && len(req.Questions) > n {
+		v.Add("%s accepts at most %d questions per request, got %d", provider.Name(), n, len(req.Questions))
+	}
+	if size, limit := len(req.State.String()), cap.MaxStateBytes; limit > 0 && size > limit {
+		v.Add("state is %d bytes, %s accepts at most %d", size, provider.Name(), limit)
+	}
+	for _, question := range req.Questions {
+		if n := len(question.Options); n > cap.MaxChoices && cap.MaxChoices > 0 {
+			v.Add("question %q has %d options, %s accepts at most %d",
+				question.Name, n, provider.Name(), cap.MaxChoices)
+		}
+	}
+
+	return v.OrNil()
 }
 
 // wrap applies the configured middleware chain to a provider. The caller must

@@ -183,12 +183,12 @@ func (e *Error) Error() string {
 // Unwrap exposes the underlying cause to [errors.Is] and [errors.As].
 func (e *Error) Unwrap() error { return e.Err }
 
-// Is reports whether the error matches a package sentinel.
+// Is reports whether the error matches a package sentinel. The sentinel is
+// compared by identity, so a wrapper around a sentinel does not match; use
+// [Error.Kind] to branch on a classification instead.
 func (e *Error) Is(target error) bool {
-	if sentinel := e.Kind.sentinel(); sentinel != nil && errors.Is(target, sentinel) {
-		return true
-	}
-	return false
+	sentinel := e.Kind.sentinel()
+	return sentinel != nil && sentinel == target
 }
 
 // Retryable reports whether retrying the same request could succeed.
@@ -290,6 +290,28 @@ func (v *ValidationError) Error() string {
 
 // Is lets callers test validation failures with [errors.Is].
 func (v *ValidationError) Is(target error) bool { return target == ErrInvalidRequest }
+
+// As lets callers reach a validation failure with [errors.As] using the same
+// *[Error] shape every provider returns:
+//
+//	var dErr *decide.Error
+//	if errors.As(err, &dErr) && dErr.Kind == decide.KindInvalidRequest {
+//	        for _, problem := range err.(*decide.ValidationError).Problems {
+//	                log.Print(problem)
+//	        }
+//	}
+func (v *ValidationError) As(target any) bool {
+	dErr, ok := target.(**Error)
+	if !ok || dErr == nil {
+		return false
+	}
+	message := ""
+	if len(v.Problems) > 0 {
+		message = strings.Join(v.Problems, "; ")
+	}
+	*dErr = &Error{Kind: KindInvalidRequest, Message: message, Err: v}
+	return true
+}
 
 // Add appends a problem, formatting it with [fmt.Sprintf].
 func (v *ValidationError) Add(format string, args ...any) {

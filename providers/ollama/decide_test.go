@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/base64"
 	"testing"
+	"time"
 
 	decide "github.com/FlameInTheDark/go-decide"
 )
@@ -169,7 +170,7 @@ func TestDecideImages(t *testing.T) {
 		Model:     "clef-flash",
 		State:     decide.Text("A user took this screenshot and wants to know what it shows."),
 		Images:    []decide.Image{image},
-		KeepAlive: "5m",
+		KeepAlive: 5 * time.Minute,
 		Questions: []decide.Question{
 			decide.Noul("has_ollama", "Does this image contain Ollama?"),
 		},
@@ -186,7 +187,7 @@ func TestDecideImages(t *testing.T) {
 	if images[0] != image.Base64 {
 		t.Errorf("image = %v, want raw base64", images[0])
 	}
-	if got.body["keep_alive"] != "5m" {
+	if got.body["keep_alive"] != "5m0s" {
 		t.Errorf("keep_alive = %v", got.body["keep_alive"])
 	}
 }

@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"strings"
 	"testing"
+	"time"
 )
 
 func TestQuestionMarshalChoice(t *testing.T) {
@@ -152,7 +153,7 @@ func TestSystemOnePayload(t *testing.T) {
 	req := Request{
 		Model:     "nimble",
 		State:     Text("hello"),
-		KeepAlive: "5m",
+		KeepAlive: 5 * time.Minute,
 		Questions: []Question{Noul("a", "A?"), Noul("b", "B?")},
 	}
 
@@ -163,7 +164,7 @@ func TestSystemOnePayload(t *testing.T) {
 	if payload.Questions["a"].Instructions != "A?" {
 		t.Errorf("question a = %+v", payload.Questions["a"])
 	}
-	if payload.KeepAlive != "5m" {
+	if payload.KeepAlive != "5m0s" {
 		t.Errorf("keep_alive = %q", payload.KeepAlive)
 	}
 	if payload.Model != "nimble" {
@@ -173,26 +174,83 @@ func TestSystemOnePayload(t *testing.T) {
 
 func TestKeepAliveDuration(t *testing.T) {
 	tests := []struct {
-		hint    string
-		wantOK  bool
-		wantSec float64
+		name   string
+		hint   time.Duration
+		wantOK bool
+		want   string
 	}{
-		{"", false, 0},
-		{"5m", true, 300},
-		{"300", true, 300},
-		{"-1", true, -1},
-		{"nonsense", false, 0},
+		{"unset", 0, false, ""},
+		{"five minutes", 5 * time.Minute, true, "5m0s"},
+		{"seconds", 300 * time.Second, true, "5m0s"},
+		{"one minute", time.Minute, true, "1m0s"},
+		{"negative keeps loaded", -1 * time.Second, true, "-1s"},
+		{"sub second keeps its precision", 1500 * time.Millisecond, true, "1.5s"},
 	}
 
 	for _, tc := range tests {
-		t.Run(tc.hint, func(t *testing.T) {
-			got, ok := (Request{KeepAlive: tc.hint}).KeepAliveDuration()
+		t.Run(tc.name, func(t *testing.T) {
+			req := Request{KeepAlive: tc.hint}
+
+			got, ok := req.KeepAliveDuration()
 			if ok != tc.wantOK {
 				t.Fatalf("ok = %v, want %v", ok, tc.wantOK)
 			}
-			if ok && got.Seconds() != tc.wantSec {
-				t.Errorf("duration = %v, want %v s", got.Seconds(), tc.wantSec)
+			if ok && got != tc.hint {
+				t.Errorf("duration = %v, want %v", got, tc.hint)
+			}
+			if hint := keepAliveHint(tc.hint); hint != tc.want {
+				t.Errorf("keep_alive = %q, want %q", hint, tc.want)
 			}
 		})
+	}
+}
+
+func TestExtraIsMergedIntoPayload(t *testing.T) {
+	req := Request{
+		Model:     "nimble",
+		State:     Text("hello"),
+		Extra:     map[string]json.RawMessage{"temperature": json.RawMessage(`0.25`)},
+		Questions: []Question{Noul("a", "A?")},
+	}
+
+	raw, err := json.Marshal(req.SystemOnePayload())
+	if err != nil {
+		t.Fatalf("marshal: %v", err)
+	}
+
+	var got map[string]any
+	if err := json.Unmarshal(raw, &got); err != nil {
+		t.Fatalf("unmarshal: %v", err)
+	}
+	if got["temperature"] != 0.25 {
+		t.Errorf("temperature = %v, want 0.25", got["temperature"])
+	}
+	if got["model"] != "nimble" {
+		t.Errorf("model = %v, want nimble", got["model"])
+	}
+	if _, ok := got["questions"]; !ok {
+		t.Error("questions missing from payload")
+	}
+}
+
+func TestExtraOverridesKnownField(t *testing.T) {
+	req := Request{
+		Model:     "nimble",
+		State:     Text("hello"),
+		Extra:     map[string]json.RawMessage{"model": json.RawMessage(`"override"`)},
+		Questions: []Question{Noul("a", "A?")},
+	}
+
+	raw, err := json.Marshal(req.SystemOnePayload())
+	if err != nil {
+		t.Fatalf("marshal: %v", err)
+	}
+
+	var got map[string]any
+	if err := json.Unmarshal(raw, &got); err != nil {
+		t.Fatalf("unmarshal: %v", err)
+	}
+	if got["model"] != "override" {
+		t.Errorf("model = %v, want override", got["model"])
 	}
 }

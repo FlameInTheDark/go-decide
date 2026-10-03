@@ -99,22 +99,9 @@ func describeRecovered(v any) string {
 	}
 }
 
-// providerName resolves the provider name for logging, falling back to the
-// legacy key that [WithProviderContext] sets.
+// providerName resolves the provider name for logging from the context the
+// [Client] populated before the middleware chain ran.
 func (r Request) providerName(ctx context.Context) string {
-	if name, ok := ProviderFromContext(ctx); ok {
-		return name
-	}
-	return ""
-}
-
-func toString(v any) string {
-	switch typed := v.(type) {
-	case string:
-		return typed
-	case error:
-		return typed.Error()
-	default:
-		return "unknown panic value"
-	}
+	name, _ := ProviderFromContext(ctx)
+	return name
 }

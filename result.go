@@ -37,6 +37,19 @@ type Result struct {
 	Raw json.RawMessage `json:"-"`
 }
 
+// UnmarshalJSON implements [json.Unmarshaler]. It reads the document written
+// by [Result.MarshalJSON], so a JSON export can be read back into Go.
+func (r *Result) UnmarshalJSON(data []byte) error {
+	type alias Result // avoids recursing into this method
+
+	var out alias
+	if err := json.Unmarshal(data, &out); err != nil {
+		return err
+	}
+	*r = Result(out)
+	return nil
+}
+
 // Answer returns the answer for the named question.
 func (r *Result) Answer(name string) (Answer, error) {
 	if r == nil {
@@ -45,43 +58,31 @@ func (r *Result) Answer(name string) (Answer, error) {
 	return r.Answers.Get(name)
 }
 
-// Choice returns the choice answer for the named question.
+// Choice returns the choice answer for the named question. It reports a
+// [KindDecode] error when the question was answered with another type.
 func (r *Result) Choice(name string) (ChoiceAnswer, error) {
-	answer, err := r.Answer(name)
-	if err != nil {
-		return ChoiceAnswer{}, err
+	if r == nil {
+		return ChoiceAnswer{}, ErrNotFound
 	}
-	choice, ok := answer.(ChoiceAnswer)
-	if !ok {
-		return ChoiceAnswer{}, &Error{Kind: KindDecode, Message: "decide: question " + name + " is not a choice answer"}
-	}
-	return choice, nil
+	return r.Answers.Choice(name)
 }
 
-// Noul returns the noul answer for the named question.
+// Noul returns the noul answer for the named question. It reports a
+// [KindDecode] error when the question was answered with another type.
 func (r *Result) Noul(name string) (NoulAnswer, error) {
-	answer, err := r.Answer(name)
-	if err != nil {
-		return NoulAnswer{}, err
+	if r == nil {
+		return NoulAnswer{}, ErrNotFound
 	}
-	noul, ok := answer.(NoulAnswer)
-	if !ok {
-		return NoulAnswer{}, &Error{Kind: KindDecode, Message: "decide: question " + name + " is not a noul answer"}
-	}
-	return noul, nil
+	return r.Answers.Noul(name)
 }
 
-// Score returns the score answer for the named question.
+// Score returns the score answer for the named question. It reports a
+// [KindDecode] error when the question was answered with another type.
 func (r *Result) Score(name string) (ScoreAnswer, error) {
-	answer, err := r.Answer(name)
-	if err != nil {
-		return ScoreAnswer{}, err
+	if r == nil {
+		return ScoreAnswer{}, ErrNotFound
 	}
-	score, ok := answer.(ScoreAnswer)
-	if !ok {
-		return ScoreAnswer{}, &Error{Kind: KindDecode, Message: "decide: question " + name + " is not a score answer"}
-	}
-	return score, nil
+	return r.Answers.Score(name)
 }
 
 // Missing lists question names that the provider did not answer.

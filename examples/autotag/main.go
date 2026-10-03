@@ -161,7 +161,11 @@ func readContent(file string) (decide.State, error) {
 	}
 
 	if strings.EqualFold(filepath.Ext(file), ".json") {
-		state, err := decide.JSON(decodeJSON(data))
+		decoded, err := loadJSON(data)
+		if err != nil {
+			return decide.State{}, fmt.Errorf("parse %s: not valid JSON: %w", file, err)
+		}
+		state, err := decide.JSON(decoded)
 		if err != nil {
 			return decide.State{}, fmt.Errorf("parse %s: %w", file, err)
 		}
@@ -171,13 +175,15 @@ func readContent(file string) (decide.State, error) {
 	return decide.Text(string(data)), nil
 }
 
-func decodeJSON(data []byte) any {
+// loadJSON parses data into an arbitrary value. It reports a syntax error
+// instead of returning the raw text, so a malformed .json file fails with a
+// clear message rather than being silently tagged as prose.
+func loadJSON(data []byte) (any, error) {
 	var raw any
 	if err := json.Unmarshal(data, &raw); err != nil {
-		// Fall back to text so decide.JSON can report a clear error.
-		return string(data)
+		return nil, err
 	}
-	return raw
+	return raw, nil
 }
 
 func describe(err error) error {

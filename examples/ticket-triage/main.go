@@ -184,6 +184,20 @@ func describe(err error) error {
 	switch {
 	case errors.Is(err, decide.ErrNotFound):
 		return fmt.Errorf("%w: is the decision model installed? try: ollama pull nimble", err)
+
+	// A local validation failure reports every problem at once, so the caller
+	// can fix them all in one pass instead of one round trip per mistake.
+	case errors.Is(err, decide.ErrInvalidRequest):
+		var vErr *decide.ValidationError
+		if errors.As(err, &vErr) {
+			problems := make([]string, 0, len(vErr.Problems))
+			for _, problem := range vErr.Problems {
+				problems = append(problems, "\n  - "+problem)
+			}
+			return fmt.Errorf("%w:%s", err, strings.Join(problems, ""))
+		}
+		return err
+
 	case errors.Is(err, decide.ErrRateLimited):
 		return fmt.Errorf("%w: the local server is busy, try again shortly", err)
 	default:

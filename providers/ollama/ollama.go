@@ -174,7 +174,7 @@ func (p *Provider) Capabilities() decide.Capability {
 	return decide.Capability{
 		Images:        true,
 		MaxChoices:    decide.MaxCriteria,
-		MaxStateBytes: MaxTextBodyBytes,
+		MaxStateBytes: decide.MaxStateBytes,
 	}
 }
 
@@ -187,11 +187,6 @@ func (p *Provider) Decide(ctx context.Context, req decide.Request) (*decide.Resu
 	payload := req.SystemOnePayload()
 	if payload.Model == "" {
 		payload.Model = p.model
-	}
-	if len(req.Images) > 0 {
-		payload.KeepAlive = req.KeepAlive
-	} else if payload.KeepAlive == "" {
-		payload.KeepAlive = ""
 	}
 
 	body, err := json.Marshal(payload)

@@ -81,9 +81,9 @@ func classifyCommand() *cli.Command {
 				Name:  "image",
 				Usage: "attach an image file, needs a vision decision model (repeatable)",
 			},
-			&cli.StringFlag{
+			&cli.DurationFlag{
 				Name:  "keep-alive",
-				Usage: "how long Ollama keeps the model loaded, e.g. 5m",
+				Usage: "how long Ollama keeps the model loaded, e.g. 5m; negative keeps it loaded",
 			},
 			&cli.StringFlag{
 				Name:  "session-id",
@@ -130,7 +130,7 @@ func runClassify(ctx context.Context, cmd *cli.Command) error {
 		State:     state,
 		Questions: questions,
 		SessionID: cmd.String("session-id"),
-		KeepAlive: cmd.String("keep-alive"),
+		KeepAlive: cmd.Duration("keep-alive"),
 	}
 
 	for _, path := range cmd.StringSlice("image") {

@@ -20,7 +20,8 @@ type RetryPolicy struct {
 	MaxDelay time.Duration
 	// Jitter randomises the delay within ±Jitter (0 disables it).
 	Jitter float64
-	// Rand sources the jitter; nil uses the shared source.
+	// Rand sources the jitter, which makes it reproducible in tests. Nil
+	// uses the shared source.
 	Rand *rand.Rand
 	// RetryOn decides whether an error is worth retrying. Nil retries
 	// errors that report themselves as retryable.
@@ -102,12 +103,20 @@ func (p RetryPolicy) delay(attempt int, err error) time.Duration {
 
 	if p.Jitter > 0 {
 		spread := float64(wait) * p.Jitter
-		wait += time.Duration((rand.Float64()*2 - 1) * spread)
+		wait += time.Duration((p.float64()*2 - 1) * spread)
 		if wait < 0 {
 			wait = 0
 		}
 	}
 	return wait
+}
+
+// float64 returns a uniform value in [0,1) from the policy's source.
+func (p RetryPolicy) float64() float64 {
+	if p.Rand != nil {
+		return p.Rand.Float64()
+	}
+	return rand.Float64()
 }
 
 func isRetryable(err error) bool {

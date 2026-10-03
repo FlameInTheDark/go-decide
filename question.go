@@ -31,7 +31,8 @@ func (t Type) Valid() bool {
 }
 
 // MinCriteria and MaxCriteria bound the number of options or scale levels
-// accepted by choice and score questions.
+// accepted by choice and score questions. The upper bound is the System One
+// wire limit, one entry per letter of the alphabet.
 const (
 	MinCriteria = 2
 	MaxCriteria = 26

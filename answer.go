@@ -234,6 +234,114 @@ func (a Answers) MarshalJSON() ([]byte, error) {
 	return json.Marshal(out)
 }
 
+// UnmarshalJSON implements [json.Unmarshaler]. It reads the same document
+// [Answers.MarshalJSON] writes, so a JSON export round-trips back into Go:
+//
+//	{"label": {"type": "choice", "key": "bug", "probabilities": {...}}}
+//
+// Keys are visited in sorted order, which makes the resulting [Answers.All]
+// order deterministic. The "noul" field is also accepted as an alias of
+// "probability", because that is how the wire format spells it.
+func (a *Answers) UnmarshalJSON(data []byte) error {
+	var fields map[string]json.RawMessage
+	if err := json.Unmarshal(data, &fields); err != nil {
+		return err
+	}
+
+	names := make([]string, 0, len(fields))
+	for name := range fields {
+		names = append(names, name)
+	}
+	sort.Strings(names)
+
+	list := make([]Answer, 0, len(names))
+	for _, name := range names {
+		answer, err := decodeAnswer(name, fields[name])
+		if err != nil {
+			return err
+		}
+		list = append(list, answer)
+	}
+
+	*a = NewAnswers(list)
+	return nil
+}
+
+// decodeAnswer rebuilds one answer from its JSON object.
+func decodeAnswer(name string, raw json.RawMessage) (Answer, error) {
+	var head struct {
+		Type Type `json:"type"`
+	}
+	if err := json.Unmarshal(raw, &head); err != nil {
+		return nil, fmt.Errorf("decide: decode answer %q: %w", name, err)
+	}
+
+	switch head.Type {
+	case TypeChoice:
+		var body struct {
+			Key           string             `json:"key"`
+			Probabilities map[string]float64 `json:"probabilities"`
+			Confidence    float64            `json:"confidence"`
+		}
+		if err := json.Unmarshal(raw, &body); err != nil {
+			return nil, fmt.Errorf("decide: decode choice answer %q: %w", name, err)
+		}
+		if body.Probabilities == nil {
+			body.Probabilities = map[string]float64{}
+		}
+		return ChoiceAnswer{
+			QuestionName:  name,
+			Key:           body.Key,
+			Probabilities: body.Probabilities,
+			Confidence:    body.Confidence,
+		}, nil
+
+	case TypeNoul:
+		var body struct {
+			Probability *float64 `json:"probability"`
+			Noul        *float64 `json:"noul"`
+		}
+		if err := json.Unmarshal(raw, &body); err != nil {
+			return nil, fmt.Errorf("decide: decode noul answer %q: %w", name, err)
+		}
+		probability := 0.0
+		switch {
+		case body.Probability != nil:
+			probability = *body.Probability
+		case body.Noul != nil:
+			probability = *body.Noul
+		}
+		return NoulAnswer{QuestionName: name, Probability: probability}, nil
+
+	case TypeScore:
+		var body struct {
+			Score         float64            `json:"score"`
+			Legend        map[string]string  `json:"legend"`
+			Probabilities map[string]float64 `json:"probabilities"`
+			Confidence    float64            `json:"confidence"`
+		}
+		if err := json.Unmarshal(raw, &body); err != nil {
+			return nil, fmt.Errorf("decide: decode score answer %q: %w", name, err)
+		}
+		if body.Probabilities == nil {
+			body.Probabilities = map[string]float64{}
+		}
+		if body.Legend == nil {
+			body.Legend = map[string]string{}
+		}
+		return ScoreAnswer{
+			QuestionName:  name,
+			Score:         body.Score,
+			Legend:        body.Legend,
+			Probabilities: body.Probabilities,
+			Confidence:    body.Confidence,
+		}, nil
+
+	default:
+		return nil, fmt.Errorf("decide: answer %q has unknown type %q", name, head.Type)
+	}
+}
+
 // Choice returns the choice answer for the named question.
 func (a Answers) Choice(name string) (ChoiceAnswer, error) {
 	return typedAnswer[ChoiceAnswer](a, name, TypeChoice)

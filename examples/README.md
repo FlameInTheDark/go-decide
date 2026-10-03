@@ -38,12 +38,36 @@ is confident enough" is a business decision, not a modelling one.
 They also share a few habits worth copying:
 
 - **Ask everything in one request.** One model load answers all questions.
-- **Validate locally first.** Bad criteria never reach the network.
+- **Validate locally first.** Bad criteria never reach the network, and the
+  error lists every problem at once via `*decide.ValidationError`.
+- **Check capabilities for free.** `decide.Client` rejects an image for a
+  text-only provider before any request is sent.
 - **Keep the state meaningful.** `decide.Object` gives the model structured
   context; see [`autotag`](autotag) reading a JSON file.
 - **Branch on errors with `errors.Is`**, never on error strings.
 - **Never guess when uncertain.** `Margin()` below a threshold means a human
   decides, not the model.
+
+[`ticket-triage`](ticket-triage) shows the error handling in full:
+
+```go
+switch {
+case errors.Is(err, decide.ErrNotFound):
+	return fmt.Errorf("%w: try: ollama pull nimble", err)
+
+case errors.Is(err, decide.ErrInvalidRequest):
+	var vErr *decide.ValidationError
+	if errors.As(err, &vErr) {
+		for _, problem := range vErr.Problems {
+			log.Printf("  - %s", problem)
+		}
+	}
+	return err
+
+case errors.Is(err, decide.ErrRateLimited):
+	return fmt.Errorf("%w: the local server is busy, try again shortly", err)
+}
+```
 
 ## Data files
 

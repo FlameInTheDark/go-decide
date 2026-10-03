@@ -11,6 +11,10 @@ import (
 
 // request is the decisions request body: the shared System One payload plus the
 // OpenRouter specific observability and routing fields.
+//
+// It declares MarshalJSON because embedding [decide.SystemOnePayload] would
+// otherwise promote that type's marshaller, which would drop every field added
+// here.
 type request struct {
 	decide.SystemOnePayload
 	// Provider holds routing preferences such as allow_fallbacks.
@@ -21,6 +25,55 @@ type request struct {
 	Trace map[string]string `json:"trace,omitempty"`
 	// User identifies the end user.
 	User string `json:"user,omitempty"`
+}
+
+// MarshalJSON implements [json.Marshaler]: the shared payload is encoded first,
+// the OpenRouter fields are added, and [decide.Request.Extra] is merged last so
+// a caller can override anything.
+//
+// The payload is encoded through a method-stripping alias because embedding
+// SystemOnePayload would otherwise promote its own MarshalJSON, which would
+// silently drop every field added here.
+func (r request) MarshalJSON() ([]byte, error) {
+	type payloadAlias decide.SystemOnePayload
+
+	shared, err := json.Marshal(payloadAlias(r.SystemOnePayload))
+	if err != nil {
+		return nil, err
+	}
+
+	fields := make(map[string]json.RawMessage)
+	if err := json.Unmarshal(shared, &fields); err != nil {
+		return nil, err
+	}
+
+	if len(r.Provider) > 0 {
+		fields["provider"] = r.Provider
+	}
+	if r.SessionID != "" {
+		fields["session_id"] = mustRaw(r.SessionID)
+	}
+	if len(r.Trace) > 0 {
+		fields["trace"] = mustRaw(r.Trace)
+	}
+	if r.User != "" {
+		fields["user"] = mustRaw(r.User)
+	}
+	for key, raw := range r.Extra {
+		if len(raw) > 0 {
+			fields[key] = raw
+		}
+	}
+
+	return json.Marshal(fields)
+}
+
+func mustRaw(v any) json.RawMessage {
+	raw, err := json.Marshal(v)
+	if err != nil {
+		return nil
+	}
+	return raw
 }
 
 // response is the decisions response body.

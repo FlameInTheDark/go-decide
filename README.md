@@ -250,6 +250,43 @@ func (p *Provider) Decide(ctx context.Context, req decide.Request) (*decide.Resu
 }
 ```
 
+### Capabilities
+
+Implement `decide.Capable` to tell `decide.Client` what your backend accepts.
+The client checks a request before sending it, so an unsupported request fails
+locally instead of over the network:
+
+```go
+func (p *Provider) Capabilities() decide.Capability {
+	return decide.Capability{
+		Images:        false,                 // reject requests carrying images
+		MaxChoices:    10,                    // at most 10 options or scale levels
+		MaxQuestions:  20,                    // at most 20 questions per request
+		MaxStateBytes: 1 << 20,               // at most 1 MiB of state
+	}
+}
+```
+
+A zero limit means "no limit", so only fill in what you can actually enforce. A
+provider that does not implement `Capable` is never restricted by the client and
+validates the request itself.
+
+### Provider-specific fields
+
+`decide.Request.Extra` carries fields this package has no counterpart for. The
+client hands them to your adapter; `Request.SystemOnePayload` merges them into
+the request body as-is, so a System One backend needs no extra work:
+
+```go
+req := decide.Request{
+	State:     decide.Text("hello"),
+	Questions: questions,
+	Extra: map[string]json.RawMessage{
+		"temperature": json.RawMessage("0.2"),
+	},
+}
+```
+
 ## Errors
 
 Every adapter returns a `*decide.Error` carrying a provider-independent kind, so
@@ -268,8 +305,23 @@ if errors.As(err, &dErr) {
 }
 ```
 
+Local validation failures are `*decide.ValidationError`, which answers
+`errors.Is(err, decide.ErrInvalidRequest)` and also yields a
+`*decide.Error` through `errors.As`, with `Kind` set to `KindInvalidRequest`.
+The individual problems are in `Problems`:
+
+```go
+var vErr *decide.ValidationError
+if errors.As(err, &vErr) {
+	for _, problem := range vErr.Problems {
+		log.Print(problem) // question "label": choice needs between 2 and 26 options, got 0
+	}
+}
+```
+
 Requests are validated locally before any network call, so bad criteria, empty
-instructions, duplicate question names and oversized bodies all fail fast.
+instructions, duplicate question names, unsupported images and oversized bodies
+all fail fast.
 
 ## Notes
 
@@ -280,7 +332,8 @@ instructions, duplicate question names and oversized bodies all fail fast.
 - **Concurrency** — providers are safe for concurrent use, and `decide.Client`
   is too.
 - **Images** — Ollama vision decision models such as `clef` accept base64 images
-  alongside the text.
+  alongside the text. `decide.Request.KeepAlive` is a `time.Duration` controlling
+  how long Ollama keeps the model loaded; other providers ignore it.
 
 ## License
 

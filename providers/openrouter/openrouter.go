@@ -31,6 +31,11 @@ const DecisionsPath = "/api/alpha/decisions"
 // MaxBodyBytes is the documented request payload limit.
 const MaxBodyBytes = 1 << 20
 
+// MaxStateBytes is the largest state accepted in a decisions request. It is the
+// documented payload limit minus the room the questions and framing need, so a
+// state that passes this check still fits inside MaxBodyBytes.
+const MaxStateBytes = MaxBodyBytes - (128 << 10)
+
 func init() {
 	decide.Register(Name, func() (decide.Provider, error) {
 		return New(), nil
@@ -140,7 +145,7 @@ func (p *Provider) Capabilities() decide.Capability {
 	return decide.Capability{
 		Images:        false,
 		MaxChoices:    decide.MaxCriteria,
-		MaxStateBytes: MaxBodyBytes,
+		MaxStateBytes: MaxStateBytes,
 	}
 }
 

@@ -9,7 +9,7 @@
 // more [Question]s and a model name. A [Provider] turns that request into a
 // [Result] holding typed [Answer]s plus [Usage].
 //
-//	questions := decide.Questions{
+//	questions := []decide.Question{
 //		decide.Choice("label", "Which label fits this ticket?", decide.Options{
 //			"billing": "Payments and refunds",
 //			"bug":     "Software errors",
@@ -49,4 +49,11 @@
 // so adapters that speak that dialect can embed the type directly. A provider
 // with a different dialect defines its own wire structs; see the provider
 // packages for worked examples.
+//
+// # Capabilities
+//
+// A provider may implement [Capable] to advertise what it accepts. [Client]
+// checks a request against those capabilities before sending it, so an
+// unsupported image or an oversized state fails locally with a
+// [KindUnsupported] or [KindPayloadTooLarge] error instead of a round trip.
 package decide

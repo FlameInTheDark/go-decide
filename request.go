@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"net/http"
 	"os"
-	"strconv"
 	"strings"
 	"time"
 )
@@ -14,6 +13,12 @@ import (
 // MaxImageBytes is the largest single image accepted by the Ollama endpoint,
 // which allows 32 MiB for image requests including base64 and JSON.
 const MaxImageBytes = 32 << 20
+
+// MaxStateBytes is the largest state accepted before base64 encoding and
+// framing are accounted for. It is the tightest limit across the bundled
+// providers: 64 KiB is what the Ollama decision endpoint accepts for a
+// text-only request.
+const MaxStateBytes = 64 << 10
 
 // Image is a base64 encoded image shared by every question of a request.
 // Build one with [ImageFromBytes] or [ImageFromFile].
@@ -80,9 +85,10 @@ type Request struct {
 	// They require a vision capable model such as Ollama's clef.
 	Images []Image
 	// KeepAlive is an Ollama hint controlling how long the model stays
-	// loaded, e.g. "5m" or "300" for seconds. Zero unloads the model and a
-	// negative value keeps it loaded. Other providers ignore it.
-	KeepAlive string
+	// loaded, e.g. 5*time.Minute. A zero duration omits the field so the
+	// server default applies; a negative duration keeps the model loaded
+	// indefinitely. Other providers ignore it.
+	KeepAlive time.Duration
 	// SessionID groups related requests for provider observability.
 	SessionID string
 	// User identifies the end user on providers that accept it.
@@ -91,7 +97,10 @@ type Request struct {
 	// "trace_name".
 	Trace map[string]string
 	// Extra carries provider specific fields that have no counterpart in
-	// this package. Keys are merged into the request body as-is.
+	// this package. Keys are merged into the request body as-is by
+	// [Request.SystemOnePayload], so a provider that speaks the System One
+	// dialect forwards them without any further work. A provider with its
+	// own dialect reads them directly; see the provider packages.
 	Extra map[string]json.RawMessage
 }
 
@@ -110,6 +119,35 @@ type SystemOnePayload struct {
 	// KeepAlive is the Ollama model residency hint. A zero duration omits
 	// the field so the server default applies.
 	KeepAlive string `json:"keep_alive,omitempty"`
+
+	// Extra carries provider specific fields merged into the body as-is.
+	Extra map[string]json.RawMessage `json:"-"`
+}
+
+// MarshalJSON implements [json.Marshaler]: the known fields are emitted first
+// and the [Request.Extra] keys are merged over them.
+func (p SystemOnePayload) MarshalJSON() ([]byte, error) {
+	type alias SystemOnePayload // avoids recursing into this method
+
+	body, err := json.Marshal(alias(p))
+	if err != nil {
+		return nil, err
+	}
+	if len(p.Extra) == 0 {
+		return body, nil
+	}
+
+	var fields map[string]json.RawMessage
+	if err := json.Unmarshal(body, &fields); err != nil {
+		return nil, err
+	}
+	for key, raw := range p.Extra {
+		if len(raw) == 0 {
+			continue
+		}
+		fields[key] = raw
+	}
+	return json.Marshal(fields)
 }
 
 // SystemOnePayload converts the request into the shared wire payload. Optional
@@ -120,12 +158,35 @@ func (r Request) SystemOnePayload() SystemOnePayload {
 		State:     r.State,
 		Questions: make(map[string]Question, len(r.Questions)),
 		Images:    r.Images,
-		KeepAlive: r.KeepAlive,
+		KeepAlive: keepAliveHint(r.KeepAlive),
+		Extra:     r.Extra,
 	}
 	for _, question := range r.Questions {
 		payload.Questions[question.Name] = question
 	}
 	return payload
+}
+
+// KeepAliveDuration reports the residency hint as a duration. It returns
+// ok=false when the hint is unset, which is when the server default applies.
+func (r Request) KeepAliveDuration() (time.Duration, bool) {
+	if r.KeepAlive == 0 {
+		return 0, false
+	}
+	return r.KeepAlive, true
+}
+
+// keepAliveHint renders a duration the way the Ollama endpoint expects it: an
+// empty string for an unset hint, otherwise the [time.Duration] string form,
+// which always carries a unit. A negative value means "keep loaded".
+//
+// The endpoint rejects a bare number ("missing unit in duration"), so the unit
+// is never stripped.
+func keepAliveHint(d time.Duration) string {
+	if d == 0 {
+		return ""
+	}
+	return d.String()
 }
 
 // Validate checks the request for problems every provider would reject.
@@ -155,21 +216,4 @@ func (r Request) Validate() error {
 	}
 
 	return v.OrNil()
-}
-
-// KeepAliveDuration converts the KeepAlive hint into a duration. It accepts
-// either a Go duration string such as "5m" or a plain number of seconds.
-// Returns ok=false when the hint is empty or malformed.
-func (r Request) KeepAliveDuration() (time.Duration, bool) {
-	hint := strings.TrimSpace(r.KeepAlive)
-	if hint == "" {
-		return 0, false
-	}
-	if secs, err := strconv.ParseFloat(hint, 64); err == nil {
-		return time.Duration(secs * float64(time.Second)), true
-	}
-	if d, err := time.ParseDuration(hint); err == nil {
-		return d, true
-	}
-	return 0, false
 }
