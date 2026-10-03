@@ -1,0 +1,9 @@
+# Build output
+/decide
+/decide.exe
+*.exe
+
+# Test and tool output
+*.log
+*.out
+coverage.*

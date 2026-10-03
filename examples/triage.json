@@ -1,0 +1,33 @@
+{
+  "questions": [
+    {
+      "name": "category",
+      "type": "choice",
+      "instructions": "Which team should own this ticket?",
+      "options": {
+        "bug": "The product is broken or unavailable",
+        "billing": "Payments, invoices or refunds",
+        "account": "Login, permissions or profile"
+      }
+    },
+    {
+      "name": "refund",
+      "type": "noul",
+      "instructions": "Is the customer asking for money back?",
+      "outcomes": {
+        "false": "No refund is being requested",
+        "true": "A refund is explicitly requested"
+      }
+    },
+    {
+      "name": "urgency",
+      "type": "score",
+      "instructions": "How urgent is this ticket?",
+      "scale": [
+        "Can wait for the next release",
+        "Should be fixed this week",
+        "Blocking revenue right now"
+      ]
+    }
+  ]
+}
