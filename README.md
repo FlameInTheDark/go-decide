@@ -6,7 +6,7 @@
 </p>
 
 <p align="center">
-  <a href="https://pkg.go.dev/github.com/FlameInTheDark/go-decide"><img src="https://img.shields.io/pkg.go/v/github.com/FlameInTheDark/go-decide.svg" alt="Go Reference"></a>
+  <a href="https://pkg.go.dev/github.com/FlameInTheDark/go-decide"><img src="https://pkg.go.dev/badge/github.com/FlameInTheDark/go-decide.svg" alt="Go Reference"></a>
   <a href="https://github.com/FlameInTheDark/go-decide/blob/main/LICENSE"><img src="https://img.shields.io/github/license/FlameInTheDark/go-decide.svg" alt="MIT License"></a>
 </p>
 
