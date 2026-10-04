@@ -269,6 +269,19 @@ func checkCapabilities(provider Provider, req Request) error {
 	return v.OrNil()
 }
 
+// CheckCapabilities reports whether provider can accept req, according to the
+// limits it advertises through [Capable]. [Client.DecideWith] calls it before
+// every request; call it directly to check a request up front, for example to
+// validate user input before a form is submitted. A nil error means the
+// request is within the advertised limits, not that the provider will accept
+// it for any other reason.
+//
+// A provider that does not implement [Capable] is assumed to accept anything,
+// which is what [Client.DecideWith] assumes too.
+func CheckCapabilities(provider Provider, req Request) error {
+	return checkCapabilities(provider, req)
+}
+
 // wrap applies the configured middleware chain to a provider. The caller must
 // not hold the client mutex.
 func (c *Client) wrap(provider Provider) Handler {

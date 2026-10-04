@@ -1,0 +1,27 @@
+@import "../tw.css";
+
+/*
+ * The playground is a dense, desktop-first tool: three columns of fixed
+ * proportions that scroll independently. Layout lives here rather than in the
+ * components so the column widths can be read in one place.
+ */
+
+@layer base {
+  html,
+  body,
+  #root {
+    height: 100%;
+  }
+
+  body {
+    margin: 0;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+
+  /* The probability bars are the main visual signal, so they keep a tabular
+   * shape while animating instead of jittering the layout. */
+  .tabular-nums {
+    font-variant-numeric: tabular-nums;
+  }
+}

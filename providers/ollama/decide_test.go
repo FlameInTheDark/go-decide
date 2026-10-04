@@ -3,6 +3,7 @@ package ollama
 import (
 	"context"
 	"encoding/base64"
+	"encoding/json"
 	"testing"
 	"time"
 
@@ -25,6 +26,18 @@ func TestDecideChoice(t *testing.T) {
 	}
 	if result.Model != "nimble" {
 		t.Errorf("model = %q, want nimble", result.Model)
+	}
+	// Raw keeps the provider bytes so a caller can inspect anything the typed
+	// result does not surface. The UI shows it as the raw provider response.
+	if !json.Valid(result.Raw) {
+		t.Errorf("Raw is not valid JSON: %q", result.Raw)
+	}
+	var wire map[string]any
+	if err := json.Unmarshal(result.Raw, &wire); err != nil {
+		t.Fatalf("unmarshal Raw: %v", err)
+	}
+	if _, ok := wire["answers"].(map[string]any)["label"]; !ok {
+		t.Errorf("Raw does not carry the wire answers: %s", result.Raw)
 	}
 	if result.Usage.InputTokens != 174 || result.Usage.OutputTokens != 1 {
 		t.Errorf("usage = %+v", result.Usage)

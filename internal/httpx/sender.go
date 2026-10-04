@@ -49,10 +49,12 @@ type Sender struct {
 
 // PostJSON encodes payload as JSON, posts it and decodes the response into
 // out. A nil out discards the body, which suits "fire and check status" calls.
-func (s *Sender) PostJSON(ctx context.Context, payload any, out any) error {
+// The response body is also returned, so a caller that wants the unmodified
+// bytes does not have to request them twice.
+func (s *Sender) PostJSON(ctx context.Context, payload any, out any) ([]byte, error) {
 	body, err := json.Marshal(payload)
 	if err != nil {
-		return fmt.Errorf("decide: encode %s request: %w", s.Provider, err)
+		return nil, fmt.Errorf("decide: encode %s request: %w", s.Provider, err)
 	}
 	return s.do(ctx, http.MethodPost, bytes.NewReader(body), out)
 }
@@ -60,11 +62,13 @@ func (s *Sender) PostJSON(ctx context.Context, payload any, out any) error {
 // GetJSON performs a GET request and decodes the JSON response into out. A nil
 // out discards the body.
 func (s *Sender) GetJSON(ctx context.Context, out any) error {
-	return s.do(ctx, http.MethodGet, nil, out)
+	_, err := s.do(ctx, http.MethodGet, nil, out)
+	return err
 }
 
-// do performs the request and applies the shared status and decoding rules.
-func (s *Sender) do(ctx context.Context, method string, body io.Reader, out any) error {
+// do performs the request and applies the shared status and decoding rules. It
+// returns the raw response body on success.
+func (s *Sender) do(ctx context.Context, method string, body io.Reader, out any) ([]byte, error) {
 	var reader io.Reader
 	if body != nil {
 		reader = body
@@ -72,7 +76,7 @@ func (s *Sender) do(ctx context.Context, method string, body io.Reader, out any)
 
 	req, err := http.NewRequestWithContext(ctx, method, s.URL, reader)
 	if err != nil {
-		return fmt.Errorf("decide: build %s request: %w", s.Provider, err)
+		return nil, fmt.Errorf("decide: build %s request: %w", s.Provider, err)
 	}
 
 	req.Header.Set("Accept", "application/json")
@@ -87,25 +91,25 @@ func (s *Sender) do(ctx context.Context, method string, body io.Reader, out any)
 
 	resp, err := s.doer().Do(req)
 	if err != nil {
-		return fmt.Errorf("decide: %s request failed: %w", s.Provider, err)
+		return nil, fmt.Errorf("decide: %s request failed: %w", s.Provider, err)
 	}
 	defer resp.Body.Close()
 
 	response, err := readBody(resp.Body, s.MaxBodyBytes)
 	if err != nil {
-		return fmt.Errorf("decide: read %s response: %w", s.Provider, err)
+		return nil, fmt.Errorf("decide: read %s response: %w", s.Provider, err)
 	}
 
 	if resp.StatusCode < 200 || resp.StatusCode > 299 {
-		return s.decodeError(resp.StatusCode, response, resp.Header)
+		return nil, s.decodeError(resp.StatusCode, response, resp.Header)
 	}
 	if out == nil {
-		return nil
+		return response, nil
 	}
 	if err := json.Unmarshal(response, out); err != nil {
-		return fmt.Errorf("decide: decode %s response: %w", s.Provider, err)
+		return nil, fmt.Errorf("decide: decode %s response: %w", s.Provider, err)
 	}
-	return nil
+	return response, nil
 }
 
 // Doer exposes the Doer in use, creating the default client when unset.

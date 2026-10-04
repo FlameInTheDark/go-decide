@@ -208,9 +208,16 @@ func (p *Provider) Decide(ctx context.Context, req decide.Request) (*decide.Resu
 	p.mu.Unlock()
 
 	var response response
-	if err := sender.PostJSON(ctx, payload, &response); err != nil {
+	raw, err := sender.PostJSON(ctx, payload, &response)
+	if err != nil {
 		return nil, err
 	}
 
-	return response.result(p.Name(), payload.Model)
+	result, err := response.result(p.Name(), payload.Model)
+	if err != nil {
+		return nil, err
+	}
+	result.Raw = json.RawMessage(raw)
+
+	return result, nil
 }

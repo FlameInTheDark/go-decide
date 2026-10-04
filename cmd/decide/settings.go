@@ -14,8 +14,7 @@ import (
 	"github.com/urfave/cli/v3"
 
 	decide "github.com/FlameInTheDark/go-decide"
-	"github.com/FlameInTheDark/go-decide/providers/ollama"
-	"github.com/FlameInTheDark/go-decide/providers/openrouter"
+	"github.com/FlameInTheDark/go-decide/internal/cliconfig"
 )
 
 // stdinSource overrides where piped input is read from. Tests replace it so
@@ -100,49 +99,32 @@ func (s settings) logger() *slog.Logger {
 // outlive the command timeout.
 func httpClientFor(timeout time.Duration) *http.Client {
 	if timeout <= 0 {
-		timeout = 2 * time.Minute
+		timeout = cliconfig.DefaultTimeout
 	}
 	return &http.Client{Timeout: timeout}
 }
 
-// client builds a decide.Client for the selected provider. Both adapters are
-// always registered so switching backends costs a single flag.
+// librarySettings converts the CLI configuration into the shared settings used
+// to build a decide.Client. The playground builds its clients the same way, so
+// both binaries resolve providers, timeouts, retries and logging identically.
+func (s settings) librarySettings() cliconfig.Settings {
+	out := cliconfig.Settings{
+		Provider: s.provider,
+		BaseURL:  s.baseURL,
+		APIKey:   s.apiKey,
+		Timeout:  s.timeout,
+		Retries:  s.retries,
+		Verbose:  s.verbose,
+	}
+	if s.verbose {
+		out.Logger = s.logger()
+	}
+	return out
+}
+
+// client builds a decide.Client for the selected provider.
 func (s settings) client() *decide.Client {
-	ollamaOpts := []ollama.Option{
-		ollama.WithBaseURL(or(s.baseURL, ollama.DefaultBaseURL)),
-		ollama.WithHTTPClient(httpClientFor(s.timeout)),
-	}
-
-	openrouterOpts := []openrouter.Option{
-		openrouter.WithBaseURL(or(s.baseURL, openrouter.DefaultBaseURL)),
-		openrouter.WithHTTPClient(httpClientFor(s.timeout)),
-	}
-	if s.apiKey != "" {
-		openrouterOpts = append(openrouterOpts, openrouter.WithAPIKey(s.apiKey))
-	}
-	if s.verbose {
-		openrouterOpts = append(openrouterOpts,
-			openrouter.WithReferer("github.com/FlameInTheDark/go-decide"),
-			openrouter.WithTitle("go-decide"),
-		)
-	}
-
-	options := []decide.Option{
-		decide.WithProvider(ollama.New(ollamaOpts...)),
-		decide.WithProvider(openrouter.New(openrouterOpts...)),
-		decide.WithDefault(s.provider),
-		decide.WithRetry(decide.RetryPolicy{
-			MaxAttempts: s.retries + 1,
-			BaseDelay:   300 * time.Millisecond,
-			MaxDelay:    3 * time.Second,
-			Jitter:      0.2,
-		}),
-	}
-	if s.verbose {
-		options = append(options, decide.WithMiddleware(decide.WithLogging(s.logger())))
-	}
-
-	return decide.New(options...)
+	return s.librarySettings().NewClient()
 }
 
 // loadState resolves the state to evaluate from the positional argument, the

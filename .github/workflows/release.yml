@@ -38,8 +38,18 @@ jobs:
 
       - uses: actions/setup-go@v6
         with:
-          go-version: "1.24"
+          # 1.25 is the floor: the playground server uses Fiber v3, whose go.mod
+          # requires it. The decide CLI itself still builds on older toolchains.
+          go-version: "1.25"
           check-latest: true
+
+      # The playground binary embeds the frontend, so Node is needed before the
+      # build script runs.
+      - uses: actions/setup-node@v5
+        with:
+          node-version: "24"
+          cache: npm
+          cache-dependency-path: web/package-lock.json
 
       - name: Resolve release
         id: release
@@ -56,6 +66,8 @@ jobs:
 
       # bash is explicit so the script runs even when the checkout did not
       # preserve the executable bit, which Windows clients do not track.
+      # The script runs `npm ci && npm run build` itself, so the frontend is
+      # built from a clean install for the tag being published.
       - name: Build binaries
         if: steps.released.outputs.version != ''
         run: bash .github/build-release.sh "${{ steps.released.outputs.version }}"
@@ -69,6 +81,15 @@ jobs:
           tag_name: ${{ steps.released.outputs.version }}
           files: dist/*
           fail_on_unmatched_files: true
+
+      - name: Upload Linux binaries as artifacts
+        if: steps.released.outputs.version != ''
+        uses: actions/upload-artifact@v4
+        with:
+          name: decide-${{ steps.released.outputs.version }}-linux
+          path: |
+            dist/*_linux_*.tar.gz
+          if-no-files-found: error
 
       - name: Summary
         if: always()

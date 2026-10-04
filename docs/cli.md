@@ -311,3 +311,38 @@ decide completion powershell | Out-String | Invoke-Expression
 
 - [Providers](providers.md) — what the CLI is talking to.
 - [Questions](questions.md) — the JSON question file format.
+## Web playground
+
+A second binary serves the same library through a browser UI:
+
+```bash
+go install github.com/FlameInTheDark/go-decide/cmd/decide-playground@latest
+decide-playground                      # http://localhost:842
+decide-playground --open               # and open a browser
+decide-playground -p openrouter -k "$OPENROUTER_API_KEY"
+decide-playground --listen 127.0.0.1:9000 --model nimble --verbose
+```
+
+| Flag | Default | Meaning |
+|---|---|---|
+| `--provider`, `-p` | `ollama` | `ollama` or `openrouter` |
+| `--base-url` | provider default | Override the provider address |
+| `--api-key`, `-k` | none | Credentials, held in memory only |
+| `--model`, `-m` | provider default | Default model for decisions |
+| `--timeout` | `2m` | Per-decision deadline |
+| `--retries` | `2` | Attempts for transient failures |
+| `--listen` | `127.0.0.1:842` | Address to bind, loopback only |
+| `--open` | off | Open a browser once it is serving |
+| `--verbose`, `-v` | off | Log every request to stderr |
+
+It has its own `version` subcommand and `--version` flag, like `decide`.
+
+The frontend is embedded with `go:embed`, so the binary needs nothing else on
+disk. It refuses any `--listen` host that is not loopback: the UI has no
+authentication, so binding a routable address would let anyone on the network
+spend your API key. Configuration lives only in memory, so a restart starts from
+the flags again.
+
+Requests are validated locally first and answers carry the numbers the library
+derived — `Margin`, `Level`, `True`, `Confidence` — so the panel can never
+disagree with a Go caller reading the same result.

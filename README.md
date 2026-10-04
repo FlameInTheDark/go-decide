@@ -217,6 +217,23 @@ echo "buy cheap followers now" | go run ./examples/moderation
 
 See [`examples/`](examples/) for the rest.
 
+## Web playground
+
+The same library, with a browser UI in front of it: build questions, press
+Run, read the answers with their probabilities, and see the raw provider
+response. It is one binary with the frontend embedded, binds to loopback only,
+and never writes anything to disk.
+
+```sh
+go run ./cmd/decide-playground          # http://localhost:842
+go run ./cmd/decide-playground --open   # and open a browser
+```
+
+Every decision it runs goes through `decide.Client`, so validation, capability
+checks, retries and error classification behave exactly as they do in `decide`
+itself. It cannot be bound to a routable address: there is no authentication, so
+anything beyond localhost would let anyone on the network spend your API key.
+
 ## Providers
 
 | Provider | Endpoint | Notes |

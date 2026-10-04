@@ -14,7 +14,7 @@ that jump straight to the one you need.
 | [Providers](providers.md) | Ollama and OpenRouter, capabilities, custom fields, fallbacks |
 | [Errors](errors.md) | Every error the library returns and how to branch on it |
 | [Retries and middleware](resilience.md) | Retry policies, logging, panic recovery, custom middleware |
-| [Command line](cli.md) | The `decide` binary, flags, exit codes |
+| [Command line](cli.md) | The `decide` and `decide-playground` binaries, flags, exit codes |
 | [Custom providers](custom-providers.md) | Implementing `decide.Provider` yourself |
 | [Testing](testing.md) | Testing code that uses decide |
 

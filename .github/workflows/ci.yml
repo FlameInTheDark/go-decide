@@ -1,8 +1,8 @@
 name: CI
 
-# Vet, test and format-check on every push and pull request. Cross-platform
-# builds live in release.yml, which runs them with the released version stamped
-# into the binary.
+# Vet, test and format-check the Go side, then typecheck and build the
+# playground frontend. Cross-platform builds live in release.yml, which runs
+# them with the released version stamped into the binary.
 on:
   push:
     branches: [main]
@@ -18,9 +18,11 @@ jobs:
     steps:
       - uses: actions/checkout@v5
 
+      # 1.25 is the floor: the playground server uses Fiber v3, whose go.mod
+      # requires it. The decide CLI itself still builds on older toolchains.
       - uses: actions/setup-go@v6
         with:
-          go-version: "1.24"
+          go-version: "1.25"
           check-latest: true
 
       - name: Vet
@@ -38,3 +40,41 @@ jobs:
             gofmt -d .
             exit 1
           fi
+
+  web:
+    name: Frontend
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: web
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: "24"
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+
+      # npm ci installs exactly what package-lock.json pins, so a build that
+      # works here works for anyone who clones the tag.
+      - name: Install
+        run: npm ci
+
+      - name: Lint
+        run: npm run lint
+
+      # tsc -b runs in the build script, so this fails on a type error before
+      # anything is bundled.
+      - name: Build
+        run: npm run build
+
+      # The Go binary embeds web/dist, so a dist without index.html means the
+      # server would refuse to start.
+      - name: Check the build output
+        run: |
+          test -f dist/index.html
+          grep -q '/assets/' dist/index.html || {
+            echo "::error::dist/index.html does not reference the bundle"
+            exit 1
+          }
