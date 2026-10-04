@@ -1,0 +1,80 @@
+name: Release
+
+# Conventional commits merged into main decide the version. The release job
+# tags, builds the CLI for every supported platform, and publishes a GitHub
+# Release with the binaries attached. Release notes go in the release body, so
+# no CHANGELOG file is kept in the repository.
+on:
+  push:
+    branches: [main]
+  # Lets you re-run the release for a branch without touching the commit.
+  workflow_dispatch:
+
+# Blocks a second release while one is running, so two pushes in quick
+# succession cannot both compute the same next version.
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  release:
+    name: Release
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write # push the tag and create the release
+      issues: write # comment on the issues closed by the release
+      pull-requests: write # comment on the pull requests included in the release
+    steps:
+      # fetch-depth 0 is required: semantic-release needs the full history and
+      # every existing tag to work out the next version.
+      - name: Checkout
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - uses: actions/setup-go@v6
+        with:
+          go-version: "1.24"
+          check-latest: true
+
+      - name: Resolve release
+        id: release
+        uses: cycjimmy/semantic-release-action@v6
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      # No release needed for a docs/chore/test-only commit. Each subsequent
+      # step is skipped, and the job still succeeds.
+      - name: Check for a release
+        id: released
+        if: steps.release.outputs.new_release_published == 'true'
+        run: echo "version=${{ steps.release.outputs.new_release_version }}" >> "$GITHUB_OUTPUT"
+
+      # bash is explicit so the script runs even when the checkout did not
+      # preserve the executable bit, which Windows clients do not track.
+      - name: Build binaries
+        if: steps.released.outputs.version != ''
+        run: bash .github/build-release.sh "${{ steps.released.outputs.version }}"
+
+      # softprops/action-gh-release appends to the release semantic-release
+      # already created, and fails rather than duplicating it if one exists.
+      - name: Attach binaries to the release
+        if: steps.released.outputs.version != ''
+        uses: softprops/action-gh-release@v3
+        with:
+          tag_name: ${{ steps.released.outputs.version }}
+          files: dist/*
+          fail_on_unmatched_files: true
+
+      - name: Summary
+        if: always()
+        run: |
+          if [ -n "${{ steps.released.outputs.version }}" ]; then
+            echo "Published ${{ steps.released.outputs.version }}" >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "No release: no releasable commits since the last tag." >> "$GITHUB_STEP_SUMMARY"
+          fi

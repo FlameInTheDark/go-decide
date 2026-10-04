@@ -335,6 +335,23 @@ all fail fast.
   alongside the text. `decide.Request.KeepAlive` is a `time.Duration` controlling
   how long Ollama keeps the model loaded; other providers ignore it.
 
+## Documentation
+
+Guides for each part of the library:
+
+| Guide | Covers |
+|---|---|
+| [Getting started](docs/getting-started.md) | Install, first decision, the four moving parts |
+| [Questions](docs/questions.md) | Choice, noul and score questions; writing good instructions |
+| [State](docs/state.md) | Text, objects, lists and images |
+| [Results](docs/results.md) | Probability, confidence, margin, and thresholds |
+| [Providers](docs/providers.md) | Ollama and OpenRouter, capabilities, fallbacks |
+| [Errors](docs/errors.md) | Every error the library returns and how to branch on it |
+| [Retries and middleware](docs/resilience.md) | Retry policies, logging, panic recovery, caching |
+| [Command line](docs/cli.md) | The `decide` binary, flags and exit codes |
+| [Custom providers](docs/custom-providers.md) | Implementing `decide.Provider` yourself |
+| [Testing](docs/testing.md) | Testing code that uses decide, live tests included |
+
 ## License
 
 [MIT](LICENSE)
