@@ -103,6 +103,12 @@ export interface DecideResponse {
   answers: AnswerView[]
   questions: QuestionView[]
   missing?: string[]
+  /**
+   * The state as it was sent, stored with the run so a stored run can be read
+   * back as the content it was decided from. The model server builds the real
+   * prompt and never returns it, so this is not that prompt.
+   */
+  prompt?: string
   duration_ms?: number
   provider?: string
   model?: string

@@ -1,6 +1,8 @@
-import { AlertTriangle, ChevronDown, CircleCheck, Clock, Coins } from "lucide-react"
+import { useEffect, useState } from "react"
+import { AlertTriangle, Check, ChevronDown, CircleCheck, Clock, Coins, Copy } from "lucide-react"
 
 import { Badge } from "@/components/ui/badge"
+import { Button } from "@/components/ui/button"
 import { CodeBlock } from "@/components/code-block"
 import type { AnswerView, Bar, DecideResponse } from "@/lib/types"
 import { cn } from "cn"
@@ -11,6 +13,8 @@ export function ResultsPanel({ response }: { response: DecideResponse }) {
 
   return (
     <div className="space-y-4">
+      {response.prompt ? <PromptBlock prompt={response.prompt} /> : null}
+
       <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground">
         {response.model ? (
           <span className="font-mono">{response.model}</span>
@@ -60,6 +64,60 @@ export function ResultsPanel({ response }: { response: DecideResponse }) {
           maxHeight={payloadHeight}
         />
       </div>
+    </div>
+  )
+}
+
+// The state the run was decided from. The model server builds the real prompt
+// and never returns it, so this is the request's state rather than that prompt.
+// It stays collapsed by default: it is a debugging aid, not the answer.
+function PromptBlock({ prompt }: { prompt: string }) {
+  const [open, setOpen] = useState(false)
+  const [copied, setCopied] = useState(false)
+
+  useEffect(() => {
+    if (!copied) return
+    const handle = setTimeout(() => setCopied(false), 1500)
+    return () => clearTimeout(handle)
+  }, [copied])
+
+  const copy = () => {
+    navigator.clipboard?.writeText(prompt).then(
+      () => setCopied(true),
+      () => undefined,
+    )
+  }
+
+  return (
+    <div className="overflow-hidden rounded-lg border bg-muted/40">
+      <div className="flex h-8 items-center gap-2 px-2">
+        <button
+          type="button"
+          onClick={() => setOpen(!open)}
+          aria-expanded={open}
+          className="flex items-center gap-1.5 text-xs text-muted-foreground transition-colors hover:text-foreground"
+        >
+          <ChevronDown className={cn("size-3.5 transition-transform", !open && "-rotate-90")} />
+          Prompt
+        </button>
+        <span className="truncate text-[0.7rem] text-muted-foreground/70">
+          the state this run was decided from
+        </span>
+        <Button
+          variant="ghost"
+          size="icon-xs"
+          className="ml-auto"
+          onClick={copy}
+          aria-label="Copy prompt"
+        >
+          {copied ? <Check /> : <Copy />}
+        </Button>
+      </div>
+      {open ? (
+        <pre className="max-h-80 overflow-auto border-t p-3 font-mono text-xs leading-relaxed">
+          {prompt}
+        </pre>
+      ) : null}
     </div>
   )
 }

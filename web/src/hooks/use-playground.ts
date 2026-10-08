@@ -74,6 +74,13 @@ export function usePlayground() {
     return () => clearTimeout(handle)
   }, [patch.provider, patch.base_url, config?.provider, config?.base_url, loadModels])
 
+  const reloadModels = useCallback(async () => {
+    const provider = patch.provider ?? config?.provider
+    const baseURL = patch.base_url ?? config?.base_url
+    if (!provider) return null
+    return loadModels({ provider, base_url: baseURL })
+  }, [patch.provider, patch.base_url, config?.provider, config?.base_url, loadModels])
+
   const runValidate = useCallback(async (request: DecideRequest) => {
     const ticket = ++stamp.current
     try {
@@ -173,6 +180,7 @@ export function usePlayground() {
       restore,
       showRun,
       loadModels,
+      reloadModels,
       loadHistory,
     }),
     [
@@ -192,6 +200,7 @@ export function usePlayground() {
       restore,
       showRun,
       loadModels,
+      reloadModels,
       loadHistory,
     ],
   )
@@ -199,13 +208,12 @@ export function usePlayground() {
 
 export type Playground = ReturnType<typeof usePlayground>
 
+// problemsOf reports what is wrong with the request itself. The outcome of the
+// last run is deliberately left out: an unreachable provider says nothing about
+// the payload, and letting it in here kept Run disabled after a failure, with
+// nothing left in the UI able to clear it. failure is the outcome of the last
+// run and is rendered on its own; run clears it when a new run starts.
 export function problemsOf(playground: Playground): { problems: string[]; fields: string[] } {
-  if (playground.failure) {
-    return {
-      problems: playground.failure.problems?.length ? playground.failure.problems : [playground.failure.error],
-      fields: playground.failure.fields ?? [],
-    }
-  }
   return playground.validated ?? { problems: [], fields: [] }
 }
 

@@ -1,5 +1,5 @@
 import { useState } from "react"
-import { KeyRound, Settings2 } from "lucide-react"
+import { KeyRound, RefreshCw, Settings2 } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import {
@@ -28,9 +28,10 @@ interface SettingsDialogProps {
   models: ModelsView | null
   modelsError: string | null
   onPatch: (patch: ConfigPatch) => void
+  reloadModels: () => Promise<ModelsView | null>
 }
 
-export function SettingsDialog({ config, patch, models, modelsError, onPatch }: SettingsDialogProps) {
+export function SettingsDialog({ config, patch, models, modelsError, onPatch, reloadModels }: SettingsDialogProps) {
   const [open, setOpen] = useState(false)
   const [key, setKey] = useState("")
 
@@ -88,10 +89,19 @@ export function SettingsDialog({ config, patch, models, modelsError, onPatch }: 
               </Select>
             </div>
 
-            <div>
+            <div className="flex items-end gap-2">
               <Label htmlFor="model" className="mb-1 block text-xs">
                 Model
               </Label>
+              <Button
+                variant="ghost"
+                size="icon-xs"
+                onClick={reloadModels}
+                disabled={reloadModels === undefined}
+                aria-label="Reload available models"
+              >
+                <RefreshCw className="size-3.5" />
+              </Button>
               {models && models.models.length > 0 ? (
                 <Select value={model} onValueChange={(value) => value && update({ model: value })}>
                   <SelectTrigger id="model" className="w-full" size="sm">

@@ -383,6 +383,12 @@ type DecideResponse struct {
 	Questions []QuestionView `json:"questions"`
 	// Missing lists questions the provider did not answer.
 	Missing []string `json:"missing,omitempty"`
+	// Prompt is the state's text as it was sent, stored with the run so a
+	// stored run can be read back as the content it was decided from. The
+	// System One endpoints compose the model's real prompt server-side and
+	// never return it, so this is not that prompt: it is the playground's
+	// rendering of the request's state.
+	Prompt string `json:"prompt,omitempty"`
 	// Duration is the wall clock time the decision took.
 	DurationMS int64 `json:"duration_ms"`
 	// Provider and Model echo what was actually used.

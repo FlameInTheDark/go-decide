@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
-import { Loader2, Sparkles } from "lucide-react"
+import { Loader2, RotateCcw, Sparkles } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import { ScrollArea } from "@/components/ui/scroll-area"
@@ -100,6 +100,7 @@ export default function App() {
     clearHistory,
     restore,
     showRun,
+    reloadModels,
   } = playground
 
   const initial = useMemo(() => starterQuestions(), [])
@@ -227,7 +228,7 @@ export default function App() {
               {models.models.filter((entry) => entry.decision).length} decision models available
             </span>
           ) : null}
-          <SettingsDialog config={config} patch={patch} models={models} modelsError={modelsError} onPatch={setPatch} />
+          <SettingsDialog config={config} patch={patch} models={models} modelsError={modelsError} onPatch={setPatch} reloadModels={reloadModels} />
         </div>
 
         <div className="flex min-h-0 flex-1">
@@ -273,13 +274,26 @@ export default function App() {
                       <ResultsPanel response={result} />
                     ) : failure ? (
                       <div className="rounded-lg border border-destructive/40 bg-destructive/5 p-3">
-                        <p className="text-sm font-medium text-destructive">{failure.error}</p>
-                        {failure.kind ? (
-                          <p className="mt-1 font-mono text-[0.7rem] text-muted-foreground">
-                            kind={failure.kind}
-                            {failure.status ? ` status=${failure.status}` : ""}
-                          </p>
-                        ) : null}
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="min-w-0">
+                            <p className="text-sm font-medium text-destructive">{failure.error}</p>
+                            {failure.kind ? (
+                              <p className="mt-1 font-mono text-[0.7rem] text-muted-foreground">
+                                kind={failure.kind}
+                                {failure.status ? ` status=${failure.status}` : ""}
+                              </p>
+                            ) : null}
+                          </div>
+                          <Button
+                            variant="outline"
+                            size="xs"
+                            onClick={start}
+                            disabled={!valid || running}
+                          >
+                            <RotateCcw />
+                            Retry
+                          </Button>
+                        </div>
                       </div>
                     ) : (
                       <div className="flex flex-col items-center justify-center gap-2 py-16 text-center text-muted-foreground">

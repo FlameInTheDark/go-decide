@@ -670,6 +670,69 @@ func TestHistoryReplaysAStoredResponse(t *testing.T) {
 	}
 }
 
+// The prompt is what a stored run is read back with, so it has to carry the
+// state the run was decided from, formatted for a person to read.
+func TestThePromptRendersTheStateThatWasSent(t *testing.T) {
+	server := newStubServer(t)
+
+	got := decode[playground.DecideResponse](t, do(t, server, http.MethodPost, "/api/decide", `{
+		"state": {"title": "Checkout returns 500", "body": "Every card payment fails with a 500."},
+		"questions": [
+			{"name": "label", "type": "choice", "instructions": "Which category fits?", "options": {"bug": "Something is broken", "billing": "Payments or refunds"}},
+			{"name": "needs_reply", "type": "noul", "instructions": "Does it need a human?", "outcomes": {"false": "No reply needed", "true": "A reply is expected"}}
+		]
+	}`))
+
+	want := `{
+  "body": "Every card payment fails with a 500.",
+  "title": "Checkout returns 500"
+}`
+	if got.Prompt != want {
+		t.Errorf("prompt =\n%s\nwant =\n%s", got.Prompt, want)
+	}
+}
+
+// A text state is sent as a JSON string, but the prompt is read by a person,
+// so it must show the text rather than a quoted, escaped one-liner.
+func TestThePromptShowsATextStateUnquoted(t *testing.T) {
+	server := newStubServer(t)
+
+	got := decode[playground.DecideResponse](t, do(t, server, http.MethodPost, "/api/decide", `{
+		"state": "Every card payment fails with a 500.",
+		"questions": [{"name": "label", "type": "choice", "instructions": "?", "options": {"a": "billing", "b": "other"}}]
+	}`))
+
+	if got.Prompt != "Every card payment fails with a 500." {
+		t.Errorf("prompt = %q, want the state as plain text", got.Prompt)
+	}
+}
+
+// The prompt rides along inside the stored response, so selecting a past run
+// from the history shows the state it was decided from.
+func TestHistoryKeepsThePromptForReplay(t *testing.T) {
+	server := newStubServer(t)
+
+	do(t, server, http.MethodPost, "/api/decide", `{
+		"state": "a ticket about billing",
+		"questions": [{"name": "label", "type": "choice", "instructions": "Which category fits?", "options": {"a": "billing", "b": "other"}}]
+	}`)
+
+	history := decode[struct {
+		Runs []playground.HistoryView `json:"runs"`
+	}](t, do(t, server, http.MethodGet, "/api/history", ""))
+	if len(history.Runs) != 1 {
+		t.Fatalf("runs = %d, want 1", len(history.Runs))
+	}
+
+	var stored playground.DecideResponse
+	if err := json.Unmarshal(history.Runs[0].Response, &stored); err != nil {
+		t.Fatalf("decode the stored response: %v", err)
+	}
+	if stored.Prompt != "a ticket about billing" {
+		t.Errorf("stored prompt = %q, want the state the run was decided from", stored.Prompt)
+	}
+}
+
 // A failed run has no result to replay, so it must not pretend to have one.
 func TestFailedRunStoresNoResponse(t *testing.T) {
 	server := newStubServer(t)

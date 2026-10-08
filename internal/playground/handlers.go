@@ -180,6 +180,9 @@ func (s *Server) handleDecide(c fiber.Ctx) error {
 		response.Model = result.Model
 	}
 	response.Answers = answerViews(result, response.Questions)
+	// The prompt is rendered from the request that was actually sent, so a
+	// stored run carries what it was asked alongside what it answered.
+	response.Prompt = renderPrompt(req.State)
 
 	s.record(settings, body, &response, nil, elapsed)
 	return c.JSON(response)
