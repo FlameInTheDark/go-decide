@@ -11,7 +11,7 @@
 </p>
 
 <p align="center">
-  <img src="docs/classify.gif" width="680" alt="Classifying a support ticket with a local decision model">
+  <img src="docs/assets/classify.gif" width="680" alt="Classifying a support ticket with a local decision model">
 </p>
 
 <p align="center">
@@ -91,7 +91,7 @@ decide "Our checkout has been returning 500 errors since 9am."
 ```
 
 <p align="center">
-  <img src="docs/custom.gif" width="680" alt="Classifying text with custom questions">
+  <img src="docs/assets/custom.gif" width="680" alt="Classifying text with custom questions">
 </p>
 
 Questions are built from flags. Nothing is filled in behind your back: a
@@ -163,7 +163,7 @@ decide classify --questions examples/triage.json --state-file examples/ticket.js
 ```
 
 <p align="center">
-  <img src="docs/questions.gif" width="680" alt="Loading questions and state from JSON files">
+  <img src="docs/assets/questions.gif" width="680" alt="Loading questions and state from JSON files">
 </p>
 
 `--questions` and the inline question flags are mutually exclusive, so a file is
@@ -220,7 +220,7 @@ See [`examples/`](examples/) for the rest.
 ## Web playground
 
 <p align="center">
-  <img src="docs/playground.png" width="680" alt="Classifying text with custom questions">
+  <img src="docs/assets/playground.png" width="680" alt="Classifying text with custom questions">
 </p>
 
 The same library, with a browser UI in front of it: build questions, press
