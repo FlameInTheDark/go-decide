@@ -219,6 +219,10 @@ See [`examples/`](examples/) for the rest.
 
 ## Web playground
 
+<p align="center">
+  <img src="docs/playground.png" width="680" alt="Classifying text with custom questions">
+</p>
+
 The same library, with a browser UI in front of it: build questions, press
 Run, read the answers with their probabilities, and see the raw provider
 response. It is one binary with the frontend embedded, binds to loopback only,

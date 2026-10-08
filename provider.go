@@ -38,6 +38,8 @@ type Capability struct {
 	MaxChoices int
 	// MaxStateBytes is the largest accepted state, or 0 when unknown.
 	MaxStateBytes int
+	// MaxImageBytes is the largest accepted image payload, or 0 when unknown.
+	MaxImageBytes int
 }
 
 // Capable is an optional interface implemented by providers that advertise

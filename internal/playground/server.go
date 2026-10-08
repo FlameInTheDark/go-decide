@@ -255,6 +255,7 @@ func capabilitiesOf(provider decide.Provider) CapabilityView {
 	view.MaxQuestions = caps.MaxQuestions
 	view.MaxChoices = caps.MaxChoices
 	view.MaxStateBytes = caps.MaxStateBytes
+	view.MaxImageBytes = caps.MaxImageBytes
 	view.Known = true
 	return view
 }

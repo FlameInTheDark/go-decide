@@ -175,6 +175,7 @@ func (p *Provider) Capabilities() decide.Capability {
 		Images:        true,
 		MaxChoices:    decide.MaxCriteria,
 		MaxStateBytes: decide.MaxStateBytes,
+		MaxImageBytes: decide.MaxImageBytes,
 	}
 }
 

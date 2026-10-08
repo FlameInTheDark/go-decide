@@ -33,12 +33,19 @@ export interface DecideRequest {
   config?: ConfigPatch
   state: unknown
   questions: QuestionInput[]
+  /** Optional base64 images shared by all questions. Requires a vision-capable model. */
+  images?: ImageInput[]
   model?: string
   keep_alive?: number
   session_id?: string
   user?: string
   trace?: Record<string, string>
   extra?: Record<string, unknown>
+}
+
+export interface ImageInput {
+  base64: string
+  mime_type?: string
 }
 
 export interface OptionView {
@@ -120,6 +127,7 @@ export interface CapabilityView {
   max_questions?: number
   max_choices?: number
   max_state_bytes?: number
+  max_image_bytes?: number
   known: boolean
 }
 

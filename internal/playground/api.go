@@ -41,13 +41,23 @@ type Outcomes struct {
 	True  string `json:"true"`
 }
 
+// ImageInput is one image attached to the request. It matches the library's
+// Image type: a base64 string without data URL prefix.
+type ImageInput struct {
+	// Base64 holds the encoded image.
+	Base64 string `json:"base64"`
+	// MIMEType is the detected content type, e.g. "image/png".
+	MIMEType string `json:"mime_type,omitempty"`
+}
+
 // DecideRequest is the body of POST /api/decide and POST /api/validate. It is
 // deliberately the same shape as the CLI's questions file, so a payload that
 // works with `decide --questions` works here unchanged:
 //
 //	{
 //	  "state": "...",
-//	  "questions": [ {...} ]
+//	  "questions": [ {...} ],
+//	  "images": [ {"base64": "...", "mime_type": "image/png"} ]
 //	}
 type DecideRequest struct {
 	// Config overrides the server-side provider settings for this call. A
@@ -57,6 +67,9 @@ type DecideRequest struct {
 	State json.RawMessage `json:"state"`
 	// Questions are the typed questions to answer.
 	Questions []QuestionInput `json:"questions"`
+	// Images are optional base64 images shared by all questions, in order.
+	// They require a vision capable model such as Ollama's clef.
+	Images []ImageInput `json:"images,omitempty"`
 	// Model overrides the server-side default model.
 	Model string `json:"model,omitempty"`
 	// KeepAlive is an Ollama residency hint in seconds. Negative keeps the
@@ -134,6 +147,15 @@ func (in DecideRequest) toRequest() (decide.Request, error) {
 		req.KeepAlive = time.Duration(in.KeepAlive) * time.Second
 	}
 
+	// Attach images if provided.
+	if len(in.Images) > 0 {
+		images := make([]decide.Image, len(in.Images))
+		for i, img := range in.Images {
+			images[i] = decide.Image{Base64: img.Base64, MIMEType: img.MIMEType}
+		}
+		req.Images = images
+	}
+
 	if err := requestProblems(req); err != nil {
 		problems = append(problems, splitProblems(err, names)...)
 	}
@@ -180,6 +202,10 @@ func requestProblems(req decide.Request) error {
 			}
 			seen[name] = struct{}{}
 		}
+	}
+
+	for i, image := range req.Images {
+		image.Validate(v, i)
 	}
 
 	return v.OrNil()
@@ -419,6 +445,7 @@ type CapabilityView struct {
 	MaxQuestions  int    `json:"max_questions,omitempty"`
 	MaxChoices    int    `json:"max_choices,omitempty"`
 	MaxStateBytes int    `json:"max_state_bytes,omitempty"`
+	MaxImageBytes int    `json:"max_image_bytes,omitempty"`
 	// Known reports whether the provider implements decide.Capable. When
 	// false the limits above are unknown rather than unlimited.
 	Known bool `json:"known"`

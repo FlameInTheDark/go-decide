@@ -248,6 +248,7 @@ export default function App() {
                   problems={problems}
                   limits={{
                     max_questions: playground.validate?.capabilities?.max_questions,
+                    max_image_bytes: playground.validate?.capabilities?.max_state_bytes,
                   }}
                 />
               </div>
